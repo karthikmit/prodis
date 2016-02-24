@@ -4,12 +4,12 @@ Keys will be evicted out of memory based on LRU algorithm and evicted entries wi
 
 There are two maven modules in the project.
 
-#ProDict
+##ProDict
 
 This is the core library which has very minimal dependencies and shall be used in any project as a JAR.
 The core class ProDict exposes all the needed methods, for getting and putting key/value pairs.
 
-#ProDisServer
+##ProDisServer
 
 This is an Netty based HTTP Server based on ProDict library. 
 This server shall be run independently in private networks as a cache server.
