@@ -2,6 +2,8 @@ package com.buyhatke.prodis.api;
 
 import com.buyhatke.core.Entry;
 import com.buyhatke.prodis.exceptions.NoKeyFoundException;
+import com.buyhatke.prodis.exceptions.UnknownServerException;
+import com.buyhatke.prodis.handlers.HttpResponseBuilder;
 import com.buyhatke.prodis.handlers.event.EventType;
 import com.google.gson.Gson;
 import io.netty.buffer.ByteBuf;
@@ -16,13 +18,9 @@ import reactor.function.Consumer;
 import reactor.net.NetChannel;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static io.netty.handler.codec.http.HttpHeaders.Names.*;
-import static io.netty.handler.codec.http.HttpResponseStatus.*;
-import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 import static reactor.event.selector.Selectors.$;
 
 /**
@@ -33,17 +31,25 @@ import static reactor.event.selector.Selectors.$;
 public class ProdisAPIHandler {
     private Reactor reactor;
     private Logger logger = LoggerFactory.getLogger(ProdisAPIHandler.class);
+    private HttpResponseBuilder responseBuilder;
 
     @Autowired
-    public ProdisAPIHandler(Reactor reactor) {
+    public ProdisAPIHandler(Reactor reactor, HttpResponseBuilder responseBuilder) {
         this.reactor = reactor;
+        this.responseBuilder = responseBuilder;
     }
 
     public Consumer<FullHttpRequest> handleApi(NetChannel<FullHttpRequest, FullHttpResponse> channel) {
         return req -> {
             reactor.on($(NoKeyFoundException.class), ev -> {
                 logger.error("No key found exception received");
-                final FullHttpResponse httpResponse = resourceNotFoundResponse("Key not found");
+                final FullHttpResponse httpResponse = responseBuilder.resourceNotFoundResponse("Key not found");
+                channel.send(httpResponse);
+            });
+
+            reactor.on($(UnknownServerException.class), ev -> {
+                logger.error("Unknown Server exception received");
+                final FullHttpResponse httpResponse = responseBuilder.internalServerErrorResponse("Unknown Error Occurred");
                 channel.send(httpResponse);
             });
 
@@ -71,16 +77,21 @@ public class ProdisAPIHandler {
                     entry.setExpiresIn(expiresIn);
                     String expiresTimeUnit = ((String) valuesMap.get("expiresTimeUnit")).toLowerCase();
 
-                    if(expiresTimeUnit.equals("d")) {
-                        entry.setExpiresInUnit(TimeUnit.DAYS);
-                    } else if(expiresTimeUnit.equals("h")) {
-                        entry.setExpiresInUnit(TimeUnit.HOURS);
-                    } else if(expiresTimeUnit.equals("m")) {
-                        entry.setExpiresInUnit(TimeUnit.MINUTES);
-                    } else {
-                        // Default is one day ...
-                        entry.setExpiresInUnit(TimeUnit.DAYS);
-                        entry.setExpiresIn(1);
+                    switch (expiresTimeUnit) {
+                        case "d":
+                            entry.setExpiresInUnit(TimeUnit.DAYS);
+                            break;
+                        case "h":
+                            entry.setExpiresInUnit(TimeUnit.HOURS);
+                            break;
+                        case "m":
+                            entry.setExpiresInUnit(TimeUnit.MINUTES);
+                            break;
+                        default:
+                            // Default is one day ...
+                            entry.setExpiresInUnit(TimeUnit.DAYS);
+                            entry.setExpiresIn(1);
+                            break;
                     }
                 }
             }
@@ -90,7 +101,7 @@ public class ProdisAPIHandler {
 
         reactor.sendAndReceive(EventType.CACHE_SAVE, Event.wrap(entry), ev -> {
             final Entry entryStored = (Entry) ev.getData();
-            channel.send(successfulKeyStoreResponse(entryStored));
+            channel.send(responseBuilder.successfulKeyStoreResponse(entryStored));
         });
     }
 
@@ -102,21 +113,8 @@ public class ProdisAPIHandler {
 
         reactor.sendAndReceive(EventType.CACHE_FETCH, Event.wrap(key), ev -> {
             final Entry entryStored = (Entry) ev.getData();
-            channel.send(successfulKeyFetchResponse(entryStored));
+            channel.send(responseBuilder.successfulKeyFetchResponse(entryStored));
         });
-    }
-
-    private FullHttpResponse successfulAllStoresResponse(List<Map<String, Object>> storeInfoList) {
-        DefaultFullHttpResponse resp = new DefaultFullHttpResponse(HTTP_1_1, OK);
-
-        String text = new Gson().toJson(storeInfoList);
-        resp.headers().set(CONTENT_TYPE, "text/plain");
-        resp.headers().set(CONTENT_LENGTH, text.length());
-
-        byte[] bytes = text.getBytes();
-        resp.content().writeBytes(bytes);
-
-        return resp;
     }
 
     /**
@@ -146,79 +144,6 @@ public class ProdisAPIHandler {
         content.readBytes(bytes);
         content.release();
 
-        String value = new String(bytes);
-
-        return value;
-    }
-
-    /*
-     * Create an HTTP 500 Server Error response.
-     */
-    public static FullHttpResponse internalServerErrorResponse(String msg) {
-        DefaultFullHttpResponse resp = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1,
-                HttpResponseStatus.INTERNAL_SERVER_ERROR);
-        resp.content().writeBytes(msg.getBytes());
-        resp.headers().set(HttpHeaders.Names.CONTENT_TYPE, "text/plain");
-        resp.headers().set(HttpHeaders.Names.CONTENT_LENGTH, resp.content().readableBytes());
-        return resp;
-    }
-
-    /*
-     * Create an HTTP 404 Server Error response.
-     */
-    public static FullHttpResponse resourceNotFoundResponse(String msg) {
-        DefaultFullHttpResponse resp = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1,
-                HttpResponseStatus.NOT_FOUND);
-        resp.content().writeBytes(msg.getBytes());
-        resp.headers().set(HttpHeaders.Names.CONTENT_TYPE, "text/plain");
-        resp.headers().set(HttpHeaders.Names.CONTENT_LENGTH, resp.content().readableBytes());
-        return resp;
-    }
-
-    /*
-     * Create an HTTP 400 bad request response.
-     */
-    public static FullHttpResponse badRequest(String msg) {
-        DefaultFullHttpResponse resp = new DefaultFullHttpResponse(HTTP_1_1, BAD_REQUEST);
-        resp.content().writeBytes(msg.getBytes());
-        resp.headers().set(CONTENT_TYPE, "text/plain");
-        resp.headers().set(CONTENT_LENGTH, resp.content().readableBytes());
-        return resp;
-    }
-
-    /*
-     * Create an HTTP 301 redirect response.
-     */
-    public static FullHttpResponse redirect(String location) {
-        DefaultFullHttpResponse resp = new DefaultFullHttpResponse(HTTP_1_1, MOVED_PERMANENTLY);
-        resp.headers().set(CONTENT_LENGTH, 0);
-        resp.headers().set(LOCATION, location);
-        return resp;
-    }
-
-    public static FullHttpResponse successfulKeyStoreResponse(Entry entry) {
-        DefaultFullHttpResponse resp = new DefaultFullHttpResponse(HTTP_1_1, OK);
-
-        String text = new Gson().toJson(entry);
-                resp.headers().set(CONTENT_TYPE, "text/plain");
-        resp.headers().set(CONTENT_LENGTH, text.length());
-
-        byte[] bytes = text.getBytes();
-        resp.content().writeBytes(bytes);
-
-        return resp;
-    }
-
-    public static FullHttpResponse successfulKeyFetchResponse(Entry entry) {
-        final String storedValue = new Gson().toJson(entry);
-
-        DefaultFullHttpResponse resp = new DefaultFullHttpResponse(HTTP_1_1, OK);
-        resp.headers().set(CONTENT_TYPE, "text/plain");
-        resp.headers().set(CONTENT_LENGTH, storedValue.length());
-
-        byte[] bytes = storedValue.getBytes();
-        resp.content().writeBytes(bytes);
-
-        return resp;
+        return new String(bytes);
     }
 }
