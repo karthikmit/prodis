@@ -1,5 +1,6 @@
-# prodis
-ProDis - In Process Disk Server - is an Disk based LRU cache. It shall be configured to keep defined number of keys in memory. 
+# ProDis
+
+ProDis - **In Process Dictionary Server** - is an Disk based LRU cache. It shall be configured to keep defined number of keys in memory.
 Keys will be evicted out of memory based on LRU algorithm and evicted entries will be persisted in the configured local folder.
 
 There are two maven modules in the project.
@@ -19,4 +20,4 @@ This server shall be run independently in private networks as a cache server.
 1. Proper SnapShot(In Memory entries to FileSystem Sync) mechanism should be added up.
 2. PersistenceManager should be thread safe.
 3. Unit testing of ProDisServer.
-4. Better persistence mechanism rather than storing individual buckets in separate files.
+4. Better persistence mechanism rather than storing individual buckets in separate files. Check [this SO link](http://stackoverflow.com/questions/35477294/storing-information-across-multiple-files-vs-single-file-with-offsets-in-index)
