@@ -95,9 +95,11 @@ public class Application {
         ProDictFacade proDictFacade = ctx.getBean(ProDictFacade.class);
 
         // Just to make sure Main thread is hanging around ..
+        // And the latch count down happens at Shutdown API Call.
         CountDownLatch closeLatch = ctx.getBean(CountDownLatch.class);
         closeLatch.await();
 
+        // This would happen only during close. Missing to do this, might result in cache information loss.
         proDictFacade.close();
     }
 
