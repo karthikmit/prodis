@@ -75,7 +75,7 @@ public class Application {
                             .consume(prodisAPIHandler.handleApi(ch));
 
                     // shutdown this app
-                    in.filter((FullHttpRequest req) -> "/shutdown".equals(req.getUri()))
+                    in.filter((FullHttpRequest req) -> "/cache/shutdown".equals(req.getUri()))
                             .consume(req -> closeLatch.countDown());
                 })
                 .get();

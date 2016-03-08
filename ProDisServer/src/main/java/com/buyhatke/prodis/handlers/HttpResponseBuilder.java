@@ -5,6 +5,9 @@ import com.google.gson.Gson;
 import io.netty.handler.codec.http.*;
 import org.springframework.stereotype.Component;
 
+import java.util.Collections;
+import java.util.Map;
+
 import static io.netty.handler.codec.http.HttpHeaders.Names.*;
 import static io.netty.handler.codec.http.HttpResponseStatus.*;
 import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
@@ -85,6 +88,20 @@ public class HttpResponseBuilder {
         resp.headers().set(CONTENT_LENGTH, storedValue.length());
 
         byte[] bytes = storedValue.getBytes();
+        resp.content().writeBytes(bytes);
+
+        return resp;
+    }
+
+    public FullHttpResponse successfulHealthResponse() {
+        DefaultFullHttpResponse resp = new DefaultFullHttpResponse(HTTP_1_1, OK);
+
+        Map<String, String> entry = Collections.singletonMap("status", "OK");
+        String text = new Gson().toJson(entry);
+        resp.headers().set(CONTENT_TYPE, "text/plain");
+        resp.headers().set(CONTENT_LENGTH, text.length());
+
+        byte[] bytes = text.getBytes();
         resp.content().writeBytes(bytes);
 
         return resp;

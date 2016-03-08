@@ -53,11 +53,13 @@ public class ProdisAPIHandler {
                 channel.send(httpResponse);
             });
 
-            if(req.getMethod() == HttpMethod.GET && req.getUri().startsWith("/get")) {
+            if(req.getMethod() == HttpMethod.GET && req.getUri().startsWith("/cache/get")) {
                 // Fetch  API ...
                 handleFetchGetApi(channel, req);
-            } else if(req.getMethod() == HttpMethod.POST && req.getUri().startsWith("/put")) {
+            } else if(req.getMethod() == HttpMethod.POST && req.getUri().startsWith("/cache/put")) {
                 handleSavePostApi(channel, req);
+            } else if(req.getMethod() == HttpMethod.GET && req.getUri().startsWith("/cache/health")) {
+                handleHealthGetApi(channel, req);
             }
         };
     }
@@ -115,6 +117,10 @@ public class ProdisAPIHandler {
             final Entry entryStored = (Entry) ev.getData();
             channel.send(responseBuilder.successfulKeyFetchResponse(entryStored));
         });
+    }
+
+    private void handleHealthGetApi(NetChannel<FullHttpRequest, FullHttpResponse> channel, FullHttpRequest req) {
+        channel.send(responseBuilder.successfulHealthResponse());
     }
 
     /**
