@@ -42,7 +42,7 @@ public class ProDict {
 
         Entry entry = getInMemoryEntry(key);
 
-        if(entry == null) {
+        /*if(entry == null) {
             entry = checkInFileSystem(key);
             if(entry != null) {
                 // If not expired, keep it at the top of the list, as it is LRU Cache ..
@@ -52,7 +52,7 @@ public class ProDict {
                     return null;
                 }
             }
-        }
+        }*/
 
 
         return entry;
